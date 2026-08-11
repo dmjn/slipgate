@@ -7,12 +7,12 @@
 <meta name="description" content="Read Quake's level geometry in the browser. Orthographic plans and sections, compiled visibility, clip-hull pathfinding, baked lighting, and vector export. Reads your own pak files; nothing is uploaded.">
 <meta name="author" content="Studio Lifeforms">
 <meta name="theme-color" content="#1e1e1e">
-<link rel="canonical" href="https://slipgate.worldmaking.xyz/">
+<link rel="canonical" href="https://dmjn.github.io/slipgate/">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Slipgate">
 <meta property="og:description" content="A reading instrument for Quake level geometry. Plans, sections, visibility, pathfinding, and baked light, all in the browser.">
-<meta property="og:url" content="https://slipgate.worldmaking.xyz/">
-<meta property="og:image" content="https://slipgate.worldmaking.xyz/og.png">
+<meta property="og:url" content="https://dmjn.github.io/slipgate/">
+<meta property="og:image" content="https://dmjn.github.io/slipgate/og.png">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
@@ -683,7 +683,7 @@ body.codex-open #graphpanel{right:414px}
     <h2>SLIPGATE</h2>
     <div class="rule"></div>
     <p class="sub">A reading instrument for Quake level geometry</p>
-    <p>Drop a <b>.bsp</b> file, or drop <b>pak0.pak</b> / <b>pak1.pak</b> and pick a map from the index. Nothing is uploaded; the file is parsed in this tab.</p>
+    <p>Slipgate ships no game data, so it reads yours. Drop a <b>.bsp</b> file, or drop <b>pak0.pak</b> / <b>pak1.pak</b> and pick a map from the index. Nothing is uploaded and nothing is sent anywhere; the archive is parsed here in this tab.</p>
     <p>Quake's paks sit in the <b>id1</b> folder of any Steam, GOG, or shareware install. Shareware pak0 carries the whole first episode.</p>
     <label class="file">Choose file<input type="file" id="fileInput" accept=".bsp,.pak,.BSP,.PAK" hidden></label>
     <p class="err" id="dropErr"></p>
@@ -4879,8 +4879,10 @@ function restorePak(){
     if(!rec || !rec.buffer) return false;
     try {
       adoptPak(rec.buffer, rec.name || "cached pak");
-      cacheStatus("Cached <b>" + esc(rec.name || "pak") + "</b>, " +
-        Math.round(rec.size/1048576) + " MB. <button class='elink' id='forgetPak'>forget it</button>");
+      cacheStatus("<b>" + esc(rec.name || "pak") + "</b> is already cached in this browser, " +
+        Math.round(rec.size/1048576) + " MB, with " + S.pakMaps.length + " maps. " +
+        "<button class='elink' id='useCachedPak'>open it</button>" +
+        " &nbsp;·&nbsp; <button class='elink' id='forgetPak'>forget it</button>");
       return true;
     } catch(err){ return false; }
   }).catch(function(){ return false; });
@@ -5068,8 +5070,10 @@ loadFromPak = function(i){
 };
 
 document.addEventListener("click", function(ev){
-  if(ev.target && ev.target.id === "forgetPak"){ forgetPak(); return; }
-  if(ev.target && ev.target.id === "copyLink"){ copyLink(); return; }
+  if(!ev.target) return;
+  if(ev.target.id === "forgetPak"){ forgetPak(); return; }
+  if(ev.target.id === "copyLink"){ copyLink(); return; }
+  if(ev.target.id === "useCachedPak"){ showPicker(); return; }
 });
 
 /* the camera settles asynchronously, so the hash is written on a timer */
@@ -5092,21 +5096,22 @@ addEventListener("hashchange", function(){
   applyState(q);
 });
 
+/* The opening screen always shows, because the file prompt is where the tool
+   explains itself. A cached pak becomes a one-click shortcut rather than a
+   silent bypass. The single exception is a permalink naming a map, which should
+   land on the view it points at. */
 (function boot(){
   const q = parseHash();
   restorePak().then(function(found){
     if(!found) return;
-    const drop = document.getElementById("drop");
     if(q && q.m){
       const idx = S.pakMaps.findIndex(function(m){ return m.short === q.m; });
       if(idx >= 0){
-        drop.classList.add("gone");
+        document.getElementById("drop").classList.add("gone");
         loadFromPak(idx);
         setTimeout(function(){ applyState(q); }, 800);
-        return;
       }
     }
-    showPicker();
   });
 })();
 
