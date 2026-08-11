@@ -1,0 +1,15 @@
+{
+  "name": "Slipgate — a reading instrument for Quake level geometry",
+  "short_name": "Slipgate",
+  "description": "Read Quake's level geometry in the browser: orthographic plans and sections, compiled visibility, clip-hull pathfinding, baked lighting, and vector export.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1e1e1e",
+  "theme_color": "#1e1e1e",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

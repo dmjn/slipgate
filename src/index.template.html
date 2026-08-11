@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Slipgate — a reading instrument for Quake level geometry</title>
+<meta name="description" content="Read Quake's level geometry in the browser. Orthographic plans and sections, compiled visibility, clip-hull pathfinding, baked lighting, and vector export. Reads your own pak files; nothing is uploaded.">
+<meta name="author" content="Studio Lifeforms">
+<meta name="theme-color" content="#1e1e1e">
+<link rel="canonical" href="__SITE_URL__/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Slipgate">
+<meta property="og:description" content="A reading instrument for Quake level geometry. Plans, sections, visibility, pathfinding, and baked light, all in the browser.">
+<meta property="og:url" content="__SITE_URL__/">
+<meta property="og:image" content="__SITE_URL__/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+__STYLES__
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+
+<aside id="rail">
+  <div class="brand">
+    <h1>Slipgate</h1>
+    <p id="brandsub">no map loaded</p>
+  </div>
+
+  <div class="sec">
+    <button class="b" id="codexBtn" style="width:100%">OPEN CODEX</button>
+    <button class="b" id="atlasBtn" style="width:100%;margin-top:4px">COMPARE ALL MAPS</button>
+    <button class="b" id="exportBtn" style="width:100%;margin-top:4px">EXPORT DRAWING</button>
+    <button class="b" id="copyLink" style="width:100%;margin-top:4px">COPY LINK TO THIS VIEW</button>
+    <p class="hint" id="linkNote"></p>
+  </div>
+
+  <div class="sec">
+    <h2>Interface <span id="uival">1.0&times;</span></h2>
+    <input type="range" id="uiScale" min="100" max="200" step="10" value="100">
+  </div>
+
+  <div class="sec">
+    <h2>Palette</h2>
+    <div class="grid">
+      <button class="b on" data-theme="slipgate">SLIPGATE</button>
+      <button class="b" data-theme="blueprint">BLUEPRINT</button>
+      <button class="b" data-theme="vellum">VELLUM</button>
+      <button class="b" data-theme="contrast">CONTRAST</button>
+    </div>
+  </div>
+
+  <div class="sec" id="mapsec" style="display:none">
+    <h2>Map <span id="mapidx"></span></h2>
+    <div class="grid4">
+      <button class="b" id="mPrev" title="Previous map">&#9664;</button>
+      <button class="b" id="mIndex" style="grid-column:span 2">INDEX</button>
+      <button class="b" id="mNext" title="Next map">&#9654;</button>
+    </div>
+    <p class="hint" id="mapname">&nbsp;</p>
+  </div>
+
+  <div class="sec">
+    <h2>Camera</h2>
+    <div class="grid4">
+      <button class="b" data-cam="persp">PSP</button>
+      <button class="b on" data-cam="iso">ISO</button>
+      <button class="b" data-cam="plan">PLAN</button>
+      <button class="b" data-cam="elev">ELEV</button>
+    </div>
+    <div class="grid" style="margin-top:5px">
+      <button class="b" id="frameAllBtn">FRAME ALL</button>
+      <button class="b" id="frameSelBtn">FRAME PICK</button>
+    </div>
+    <p class="hint">Drag orbits, right-drag or shift-drag pans, wheel zooms toward the cursor. Double-click a surface to orbit around it. WASD + Q/E flies in PSP. <b style="color:var(--dim)">F</b> frames all, <b style="color:var(--dim)">G</b> frames the pick.</p>
+  </div>
+
+  <div class="sec">
+    <h2>Cut <span id="cutval">off</span></h2>
+    <div class="grid4">
+      <button class="b on" data-cut="none">OFF</button>
+      <button class="b" data-cut="z">Z</button>
+      <button class="b" data-cut="y">Y</button>
+      <button class="b" data-cut="x">X</button>
+    </div>
+    <input type="range" id="cutslider" min="0" max="1000" value="500" style="margin-top:8px">
+    <div class="row"><label for="cutflip">Flip side<input type="checkbox" id="cutflip"><span class="sw"></span></label></div>
+  </div>
+
+  <div class="sec">
+    <h2>Surface</h2>
+    <div class="grid">
+      <button class="b on" data-shade="flat">FLAT</button>
+      <button class="b" data-shade="height">HEIGHT</button>
+      <button class="b" data-shade="material">MATERIAL</button>
+      <button class="b" data-shade="model">BRUSH ENT</button>
+      <button class="b" data-shade="light" style="grid-column:span 2">BAKED LIGHT</button>
+    </div>
+    <div style="margin-top:9px">
+      <div class="row"><label for="tEdges">Face edges<input type="checkbox" id="tEdges" checked><span class="sw"></span></label></div>
+      <div class="row"><label for="tSolid">Solid faces<input type="checkbox" id="tSolid" checked><span class="sw"></span></label></div>
+      <div class="row"><label for="tSky">Sky surfaces<input type="checkbox" id="tSky"><span class="sw"></span></label></div>
+      <div class="row"><label for="tLeaf">Leaf volumes<input type="checkbox" id="tLeaf"><span class="sw"></span></label></div>
+      <div class="row"><label for="tGrid">64u grid<input type="checkbox" id="tGrid" checked><span class="sw"></span></label></div>
+    </div>
+  </div>
+
+  <div class="sec">
+    <h2>Surfaces</h2>
+    <div class="grid4">
+      <button class="b on" data-surf="floor">FLOOR</button>
+      <button class="b on" data-surf="wall">WALL</button>
+      <button class="b" data-surf="ceil">CEIL</button>
+      <button class="b" id="surfSolid">FLAT</button>
+    </div>
+    <div class="row" style="margin-top:8px"><span style="color:var(--dimmer);font-size:10px">Walls</span><span class="val" id="wallval">35%</span></div>
+    <input type="range" id="wallOp" min="0" max="100" value="35">
+    <div class="row"><span style="color:var(--dimmer);font-size:10px">Ceilings</span><span class="val" id="ceilval">12%</span></div>
+    <input type="range" id="ceilOp" min="0" max="100" value="12">
+    <div class="row" style="margin-top:4px"><label for="tLightEdge">Light face edges<input type="checkbox" id="tLightEdge"><span class="sw"></span></label></div>
+    <div class="row"><label for="tReached">Only floors the flood reached<input type="checkbox" id="tReached"><span class="sw"></span></label></div>
+    <p class="hint">Traversable means a surface tilted no more than Quake's own grounding limit, a normal-z above 0.7. Anything steeper counts as wall.</p>
+  </div>
+
+  <div class="sec">
+    <h2>Visibility <span id="visval">—</span></h2>
+    <div class="grid4">
+      <button class="b" id="probeBtn" style="grid-column:span 2">PROBE</button>
+      <button class="b" id="probeStart">START</button>
+      <button class="b" id="probeClr">CLEAR</button>
+    </div>
+    <div class="row" style="margin-top:6px"><label for="tFollow">Follow the cursor<input type="checkbox" id="tFollow"><span class="sw"></span></label></div>
+    <div class="row"><label for="tVisOnly">Hide occluded<input type="checkbox" id="tVisOnly"><span class="sw"></span></label></div>
+    <div class="row"><label for="tRef">Player reference<input type="checkbox" id="tRef" checked><span class="sw"></span></label></div>
+    <p class="hint">Off until you arm it. With PROBE on, click any surface to place the probe, or let it follow the cursor and sweep the room. It reads the compiled PVS: every surface the engine may draw from that leaf. Conservative, leaf-granular, and exactly what the designers were compiling against.</p>
+  </div>
+
+  <div class="sec">
+    <h2>Entities <span id="entval">—</span></h2>
+    <div class="grid4" style="margin-bottom:8px">
+      <button class="b" data-skill="0">EASY</button>
+      <button class="b on" data-skill="1">NORM</button>
+      <button class="b" data-skill="2">HARD</button>
+      <button class="b" data-skill="-1">ALL</button>
+    </div>
+    <div id="entcats"></div>
+    <div class="row" style="margin-top:8px"><span style="color:var(--dimmer);font-size:10px">Marker size</span><span class="val" id="markval">1.0&times;</span></div>
+    <input type="range" id="markSize" min="50" max="400" value="100">
+    <p class="hint">Markers hold a constant size on screen, so they stay clickable at any zoom.</p>
+  </div>
+
+  <div class="sec">
+    <h2>Progression</h2>
+    <div class="row"><label for="tLinks">Trigger links in 3D<input type="checkbox" id="tLinks" checked><span class="sw"></span></label></div>
+    <div class="row"><label for="tGraph">Logic graph panel<input type="checkbox" id="tGraph"><span class="sw"></span></label></div>
+    <div class="grid" style="margin-top:8px">
+      <button class="b" id="measBtn">MEASURE</button>
+      <button class="b" id="newBtn">NEW FILE</button>
+    </div>
+    <p class="hint" id="measout">Measure: click two surfaces. Units are Quake units; the player box is 32×32×56.</p>
+  </div>
+
+  <div class="sec">
+    <h2>Golden path</h2>
+    <div class="grid" style="margin-bottom:5px">
+      <button class="b" data-res="32">COARSE 32</button>
+      <button class="b on" data-res="16">FINE 16</button>
+    </div>
+    <button class="b" id="floodBtn" style="width:100%">SOLVE PATH</button>
+    <div class="fout" id="floodout">Not solved yet.</div>
+    <canvas id="lightSpark"></canvas>
+    <div class="wl" id="waylist"></div>
+    <div style="margin-top:10px">
+      <div class="row"><label for="tPath">Route &amp; waypoints<input type="checkbox" id="tPath" checked><span class="sw"></span></label></div>
+      <div class="row"><label for="tFloor">Reachable floor<input type="checkbox" id="tFloor" checked><span class="sw"></span></label></div>
+      <div class="row"><label for="tTime">Colour by time<input type="checkbox" id="tTime" checked><span class="sw"></span></label></div>
+      <div class="row"><label for="tOpt">Optional volume<input type="checkbox" id="tOpt" checked><span class="sw"></span></label></div>
+      <div class="row"><label for="tDim">Mute the optional<input type="checkbox" id="tDim" checked><span class="sw"></span></label></div>
+    </div>
+    <p class="hint">Sampled from hull 1 of the world model, Quake's own collision geometry pre-expanded to the player box. Steps up to 18, jumps to 45, falls free. Optional means floor further than 160 units off the route.</p>
+  </div>
+</aside>
+
+<button id="toggle">≡</button>
+
+<div id="readout"></div>
+
+<div id="inspect"></div>
+
+<div id="graphpanel">
+  <div id="graphGrip" title="Drag to resize"></div>
+  <header>
+    <span>Trigger / target graph</span>
+    <span class="acts">
+      <button id="graphFitBtn">fit</button>
+      <button id="graphExpand">expand</button>
+      <button id="graphClose">close</button>
+    </span>
+  </header>
+  <canvas id="graph"></canvas>
+</div>
+
+<div id="codex">
+  <div class="chdr"><h2>Codex</h2><button id="codexClose">close</button></div>
+  <div class="ctabs">
+    <button data-ctab="guide" class="on">GUIDE</button>
+    <button data-ctab="fiction">FICTION</button>
+    <button data-ctab="map">MAP</button>
+    <button data-ctab="bestiary">BESTIARY</button>
+    <button data-ctab="text">TEXT</button>
+  </div>
+  <div id="codexBody"></div>
+</div>
+
+<div id="exportPanel">
+  <div class="ahdr">
+    <h2>Export</h2>
+    <span class="sub" id="expNote"></span>
+    <button id="expClose">CLOSE</button>
+  </div>
+  <div id="expBody">
+    <div class="ecol">
+      <h3>Vector · SVG</h3>
+      <div class="egrid">
+        <button class="ebtn" data-esvg="fills">FILLS</button>
+        <button class="ebtn" data-esvg="edges">EDGES</button>
+        <button class="ebtn" data-esvg="ents">ENTITIES</button>
+        <button class="ebtn" data-esvg="route">ROUTE</button>
+        <button class="ebtn" data-esvg="navFloor">REACHABLE</button>
+        <button class="ebtn" data-esvg="block">TITLE BLOCK</button>
+      </div>
+      <button class="ego" id="expSvg">EXPORT SVG</button>
+
+      <h3>Raster · PNG</h3>
+      <div class="egrid3">
+        <button class="ebtn" data-escale="1">1&times;</button>
+        <button class="ebtn" data-escale="2">2&times;</button>
+        <button class="ebtn" data-escale="4">4&times;</button>
+      </div>
+      <div class="egrid3" style="margin-top:4px">
+        <button class="ebtn" data-emode="view">VIEW</button>
+        <button class="ebtn" data-emode="annotated">ANNOTATED</button>
+        <button class="ebtn" data-emode="interface">INTERFACE</button>
+      </div>
+      <button class="ego" id="expPng">EXPORT PNG</button>
+      <div id="expStatus"></div>
+    </div>
+    <div id="expPreview"></div>
+  </div>
+</div>
+
+<div id="atlas">
+  <div class="ahdr">
+    <h2>Atlas</h2>
+    <span class="sub" id="atlasSub"></span>
+    <button class="b" data-ares="32">COARSE 32</button>
+    <button class="b on" data-ares="16">FINE 16</button>
+    <button id="atlasRun">RUN</button>
+    <button id="atlasStop">STOP</button>
+    <button id="atlasCsv">CSV</button>
+    <button id="atlasClose">CLOSE</button>
+  </div>
+  <div id="atlasProg"></div>
+  <div id="atlasBody"></div>
+</div>
+
+<div id="busy">reading</div>
+
+<div id="picker"><div class="pk">
+  <button class="close" id="pkClose">CLOSE</button>
+  <h2 id="pkTitle">Choose a map</h2>
+  <p class="sub" id="pkSub"></p>
+  <div class="pklist" id="pklist"></div>
+</div></div>
+
+<div id="drop">
+  <div class="box">
+    <h2>SLIPGATE</h2>
+    <div class="rule"></div>
+    <p class="sub">A reading instrument for Quake level geometry</p>
+    <p>Drop a <b>.bsp</b> file, or drop <b>pak0.pak</b> / <b>pak1.pak</b> and pick a map from the index. Nothing is uploaded; the file is parsed in this tab.</p>
+    <p>Quake's paks sit in the <b>id1</b> folder of any Steam, GOG, or shareware install. Shareware pak0 carries the whole first episode.</p>
+    <label class="file">Choose file<input type="file" id="fileInput" accept=".bsp,.pak,.BSP,.PAK" hidden></label>
+    <p class="err" id="dropErr"></p>
+    <p class="hint" id="cacheNote" style="margin-top:18px;font-size:11px"></p>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script>
+__APP__
+</script>
+<script>
+if("serviceWorker" in navigator){
+  addEventListener("load", function(){
+    navigator.serviceWorker.register("sw.js").catch(function(){});
+  });
+}
+</script>
+</body>
+</html>

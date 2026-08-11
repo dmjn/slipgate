@@ -1,5 +1,3 @@
-[README (1).md](https://github.com/user-attachments/files/30944565/README.1.md)
-
 # Slipgate
 
 A reading instrument for Quake level geometry. Orthographic plans and sections,
