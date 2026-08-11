@@ -1,74 +1,81 @@
 # Slipgate
 
-A reading instrument for Quake level geometry. Orthographic plans and sections,
-compiled visibility, clip-hull pathfinding, baked lighting, and vector export,
-all in the browser.
+**A reading instrument for Quake level geometry.**
 
-Slipgate reads **your own** Quake files. It ships no game data and uploads
-nothing: paks are parsed in the tab and cached in your browser's IndexedDB.
+→ **[Open Slipgate](https://dmjn.github.io/slipgate/)**
 
----
+Slipgate opens Quake's levels and lets you read them the way you would read a
+building: in plan, in section, in axonometric, with the ceilings lifted off and
+the walls turned to glass. It is not a level editor and it is not a game. It is
+an instrument for looking closely at thirty-year-old architecture that has been
+enormously influential and very rarely measured.
 
-## Layout
+Quake is worth this attention because it has almost no story. There is a
+military installation, a teleport experiment that went wrong, and then
+thirty-two levels and no further explanation. With nothing to follow, the level
+carries everything. Take the fiction away and nothing is lost, because the
+geometry was always the text.
 
-```
-index.html                 built artefact, do not edit by hand
-slipgate-standalone.html   optional single-file build (node build.mjs --standalone)
-GUIDE.md                   the introduction and usage guide
-build.mjs                  concatenates src/ into index.html
-manifest.webmanifest       PWA manifest
-sw.js                      service worker, precaches the app shell
-_headers                   caching and security headers (Cloudflare Pages / Netlify)
-.github/workflows/pages.yml  builds and deploys on push (GitHub Pages)
-.gitignore                 blocks game data from ever being committed
-.nojekyll                  stops GitHub Pages mangling paths
-og.png                     social card
-icons/                     192 and 512 app icons
-vendor/
-  three.min.js             three.js r128, MIT
-  html2canvas.min.js       used only by the interface PNG export, MIT
-src/
-  index.template.html      page shell with __STYLES__ and __APP__ placeholders
-  styles.css               the whole stylesheet
-  _order.json              module concatenation order
-  01-bsp-pak-parsing.js    BSP29 and PAK readers, PVS, lightmaps
-  02-entity-taxonomy.js    entity classes, skill spawnflags
-  03-scene.js              renderer, cameras, state
-  04-palettes.js           themes, geometry construction, surface classes
-  05-clipping.js           section cut planes
-  06-camera.js             damped orbit, framing, projections
-  07-picking.js            entity selection, inspector, probe
-  08-logic-graph.js        trigger/target graph
-  09-clip-hull-*.js        hull 1 voxelisation, flood, progression solver
-  10-codex.js              fiction, map lore, bestiary, progs.dat strings
-  11-atlas-*.js            batch comparison across a pak
-  12-export.js             SVG and PNG export
-  13-readout.js            on-screen readout
-  14-render-loop.js        frame loop
-  15-loading.js            map loading, picker
-  16-ui-wiring.js          all control handlers
-  17-pak-cache.js          IndexedDB pak cache
-  18-permalink.js          URL hash state
-  19-boot.js               startup, hash routing
-```
+## It reads your files, not ours
 
-Everything in `src/*.js` is concatenated in `_order.json` order inside a single
-IIFE, so the modules share one scope. Order matters only for the top-level
-statements at the end; functions hoist.
+Slipgate ships no game data. Drop your own `pak0.pak` and it is parsed inside
+the browser tab. Nothing is uploaded and nothing is sent anywhere. A pak you
+choose to keep is cached locally in IndexedDB and can be cleared from the
+opening screen.
 
-## Do not ship game data
+## What it derives from the game's own data
 
-No pak files, no extracted BSPs, not the shareware pak either. It is
-redistributable, but hosting it drags licensing questions onto your domain for
-no benefit, and the tool works fine asking each visitor for their own copy. Say
-so on the page so the file prompt reads as a design decision rather than an
-obstacle.
+- **Geometry** from the BSP, split into floors, walls and ceilings at the same
+  normal-z threshold the engine uses to decide whether you are standing on
+  something, each independently dimmable or removable.
+- **Visibility** from the compiled PVS. Place a probe and see every surface the
+  engine may draw from that leaf, or let it follow the cursor and sweep a room.
+- **Navigation** from hull 1, the collision geometry Quake pre-expanded to the
+  player's 32 × 32 × 56 box, walked under the real movement rules: 18 units of
+  step, a 45 unit jump apex, free falls, swimmable water, and lifts and
+  teleporters as explicit edges.
+- **Progression** from the entity lump. Key doors, trigger chains and teleport
+  destinations are resolved into the order a player must actually do things in,
+  then drawn as a route with waypoints.
+- **Lighting** from the lightmap lump, giving a real brightness value per
+  surface, so darkness can be measured rather than described.
+- **Text** from `progs.dat` in your own pak, which is where the game's own words
+  live.
+
+## What you can do with it
+
+Cut a section anywhere on any axis. Colour surfaces by height, material, brush
+entity or baked light. Filter monsters by difficulty and watch placement change
+on identical geometry. Solve the critical path and read its length, detour
+ratio, backtracking, optional volume and the light profile beneath it. Run every
+map in a pak through the same solve and compare them in a sortable table with a
+scatter plot. Export true-scale SVG plans and sections with real cut lines, or
+PNG at up to four times the viewport.
+
+Any view can be linked. **COPY LINK TO THIS VIEW** writes the whole reading into
+the URL, so a footnote can point at a view rather than describe one.
+
+## Documentation
+
+- **[GUIDE.md](GUIDE.md)** — introduction and usage, written for a first
+  encounter. The same guide is inside the tool under **OPEN CODEX → GUIDE**.
+- **[DEPLOY.md](DEPLOY.md)** — building from source and hosting your own copy.
+
+## Honest limits
+
+The navigation grid samples on a lattice, so a ledge within one cell of the jump
+limit can read as reachable when it is marginal. The bias is deliberate, since
+an over-connection is a smaller error than a stranded exit, and when the solve
+cannot resolve every lock it says so rather than failing quietly. Brush entities
+such as `func_wall` are absent from the collision hull, so a handful of walls
+read as passable. The graph panel shows trigger and target logic rather than
+true room segmentation, which would need the `.prt` file the compiler discards.
 
 ## Licences
 
-- three.js r128, MIT, `vendor/three-LICENSE.txt`
-- html2canvas 1.4.1, MIT, `vendor/html2canvas-LICENSE.txt`
-- IBM Plex Mono via Google Fonts, SIL Open Font License
+three.js r128 and html2canvas 1.4.1 are vendored under `vendor/`, both MIT, with
+their licence files alongside. IBM Plex Mono is served from Google Fonts under
+the SIL Open Font License.
 
 Quake, its data formats and its level data are id Software's. Slipgate reads
-those formats; it contains none of that content.
+those formats and contains none of that content.
